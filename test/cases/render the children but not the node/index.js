@@ -4,14 +4,16 @@ var children = [
     props: {},
     children: [
       'Hello'
-    ]
+    ],
+    __pending: false
   },
   {
     tag: 'span',
     props: {},
     children: [
       'World'
-    ]
+    ],
+    __pending: false
   }
 ];
 

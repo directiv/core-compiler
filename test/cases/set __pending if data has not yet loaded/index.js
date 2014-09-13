@@ -5,15 +5,13 @@ exports.state = {
 exports.input = {
   tag: 'div',
   props: {
-    'data-href': 'user'
+    'data-pending-data': ''
   }
 };
 
 exports.output = {
   tag: 'div',
-  props: {
-    href: '/users/123'
-  },
+  props: {},
   children: [],
-  __pending: false
+  __pending: true
 };

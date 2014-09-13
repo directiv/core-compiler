@@ -30,6 +30,7 @@ describe('core-compile', function() {
       it('should ' + test.name, function() {
         var render = compile(test.input, injector());
         var actual = render(test.state);
+        actual = JSON.parse(JSON.stringify(actual));
         try {
           actual.should.eql(test.output);
         } catch (e) {

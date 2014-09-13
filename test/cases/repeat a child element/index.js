@@ -28,17 +28,21 @@ exports.output = {
     {
       tag: 'div',
       props: {},
-      children: 'Cameron'
+      children: 'Cameron',
+      __pending: false
     },
     {
       tag: 'div',
       props: {},
-      children: 'Brannon'
+      children: 'Brannon',
+      __pending: false
     },
     {
       tag: 'div',
       props: {},
-      children: 'Mike'
+      children: 'Mike',
+      __pending: false
     }
-  ]
+  ],
+  __pending: false
 };

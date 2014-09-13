@@ -34,32 +34,39 @@ exports.output = {
     {
       tag: 'div',
       props: {},
-      children: 'Cameron'
+      children: 'Cameron',
+      __pending: false
     },
     {
       tag: 'div',
       props: {},
-      children: 'pizza'
+      children: 'pizza',
+      __pending: false
     },
     {
       tag: 'div',
       props: {},
-      children: 'Brannon'
+      children: 'Brannon',
+      __pending: false
     },
     {
       tag: 'div',
       props: {},
-      children: 'yarn'
+      children: 'yarn',
+      __pending: false
     },
     {
       tag: 'div',
       props: {},
-      children: 'Mike'
+      children: 'Mike',
+      __pending: false
     },
     {
       tag: 'div',
       props: {},
-      children: 'curry'
+      children: 'curry',
+      __pending: false
     }
-  ]
+  ],
+  __pending: false
 };

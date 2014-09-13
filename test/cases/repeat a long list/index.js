@@ -32,7 +32,9 @@ exports.output = {
     return {
       tag: 'div',
       props: {},
-      children: user.name
+      children: user.name,
+      __pending: false
     };
-  })
+  }),
+  __pending: false
 };

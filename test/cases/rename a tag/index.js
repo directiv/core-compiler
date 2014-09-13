@@ -8,5 +8,6 @@ exports.input = {
 exports.output = {
   tag: 'span',
   props: {},
-  children: []
+  children: [],
+  __pending: false
 };

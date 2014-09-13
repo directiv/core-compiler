@@ -70,7 +70,8 @@ function buildOutput(i, name) {
   if (i === 6) return {
     tag: 'div',
     props: {},
-    children: name
+    children: name,
+    __pending: false
   };
 
   return {
@@ -80,6 +81,7 @@ function buildOutput(i, name) {
       buildOutput((i || 0) + 1, 'Cameron'),
       buildOutput((i || 0) + 1, 'Brannon'),
       buildOutput((i || 0) + 1, 'Mike')
-    ]
+    ],
+    __pending: false
   };
 }

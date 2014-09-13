@@ -30,15 +30,15 @@ module.exports = function(ast, injector) {
  * @return {RenderFunction}
  */
 
-function compileNode(ast, injector) {
+function compileNode(ast, injector, cache) {
   debug('compiling', ast);
 
   if (typeof ast === 'string') return function render() {return ast;}
 
-  var directivesReduce = compileProps(ast.props, injector);
-  var childrenReduce = compileChildren(ast.children || [], injector);
+  cache = cache || createCache();
 
-  var cache = createCache();
+  var directivesReduce = compileProps(ast.props, injector);
+  var childrenReduce = compileChildren(ast.children || [], injector, cache);
 
   var computeState = genComputeState(directivesReduce, injector, cache);
   var computeProperties = genComputeProperties(directivesReduce, childrenReduce, injector, cache, ast.tag || 'div');
@@ -54,10 +54,17 @@ function compileNode(ast, injector) {
 
     // don't render this element
     var tag = el.tag;
-    if (tag === false) return '';
+    if (tag === false) {
+      var elStr = '';
+      elStr.__pending = el.__pending;
+      return elStr;
+    };
 
     var children = el.children;
-    if (children) children = evalChildren(children);
+    if (typeof children !== 'undefined') {
+      children = el.children = evalChildren(children);
+      el.__pending = el.__pending || !!children.__pending;
+    }
 
     // merge this node's children into the parent's
     if (el.childrenOnly) return children || [];
@@ -68,7 +75,7 @@ function compileNode(ast, injector) {
     }
 
     var element = injector.components(tag);
-    return element(el.props, children);
+    return element(el);
   };
 }
 
@@ -101,15 +108,28 @@ function clearCache(cache) {
  */
 
 function evalChildren(children) {
-  if (!Array.isArray(children)) return children;
+  if (!Array.isArray(children)) {
+    children.__pending = false;
+    return children;
+  }
   var cs = [];
-  var child, value, state, tmpl, res;
-  for (var i = 0, l = children.length; i < l; i++) {
+  var child, value, state, tmpl, res, i, l;
+  for (i = 0, l = children.length; i < l; i++) {
     child = children[i];
     res = child.get('_tmpl')(child.get('state'));
     // if the result is an array merge it with our own children
     if (Array.isArray(res)) cs = Array.prototype.push.apply(cs, res);
     else cs.push(res);
+  }
+
+  cs.__pending = false;
+
+  var pending;
+  for (i = 0, l = cs.length; i < l; i++) {
+    pending = cs[i].__pending;
+    if (!pending) continue;
+    cs.__pending = true;
+    break;
   }
   return cs;
 }
@@ -123,22 +143,39 @@ function evalChildren(children) {
  * @return {Function}
  */
 
+var pendingKey = ['$pending'];
+var statusKey = ['$status'];
 function genComputeState(directives, injector, cache) {
   return function (init) {
-    return directives(function(state, d) {
-      var key = d.key;
-      var directive = cache.directives[key];
-      if (!directive) cache.directives[key] = directive = injector.directive(key);
-      var genState = directive.state;
-      var newState = genState ?
-            genState.call(injector, d.conf, state) :
-            state;
+    var state = init || new ImmutableMap();
+    var isReady = true;
+    var pending = [];
+    var statuses = [];
+    var state2 = state.withMutations(function(s) {
+      directives(function(_, d) {
+        var key = d.key;
+        var directive = cache.directives[key];
+        if (!directive) cache.directives[key] = directive = injector.directive(key);
+        var genState = directive.state;
+        var newState = genState ? genState.call(injector, d.conf, s) : s;
 
-      // TODO check and see if the newState has a 'pending' flag
-      if (newState !== false) state = newState;
+        if (newState === false) {
+          isReady = false;
+          return pending.push(key);
+        }
 
-      return state;
-    }, init || new ImmutableMap());
+        var genStatus = directive.status;
+        if (!genStatus) return;
+        var status = genStatus.call(injector, d.conf, s);
+        statuses.push(status);
+      });
+    });
+    state2.__statuses = {
+      // __pending: pending,
+      __statuses: statuses,
+      __pending: !isReady
+    };
+    return state2;
   }
 }
 
@@ -175,6 +212,7 @@ function genComputeProperties(directives, children, injector, cache, tag) {
   }
 
   function computeProps(state) {
+    var pending = state.get('$pending');
     return directives(function(props, d) {
       var getProps = cache.directives[d.key].props;
       if (!getProps) return props;
@@ -190,7 +228,8 @@ function genComputeProperties(directives, children, injector, cache, tag) {
       tag: childrenOnly ? true: computeTag(state),
       props: childrenOnly ? {} : computeProps(state),
       $state: state,
-      childrenOnly: childrenOnly
+      childrenOnly: childrenOnly,
+      __pending: state.__statuses.__pending
     };
   }
 }
@@ -257,13 +296,13 @@ function compileProps(props, injector) {
  * @return {ReduceFunction}
  */
 
-function compileChildren(children, injector) {
+function compileChildren(children, injector, cache) {
   if (typeof children === 'string') children = [children];
   var length = children.length;
   var acc = new Array(length);
   var child;
   for (var i = 0; i < length; i++) {
-    child = compileNode(children[i], injector);
+    child = compileNode(children[i], injector, cache);
     acc[i] = new ImmutableMap({_tmpl: child});
   }
   debug('children compiled', acc);

@@ -10,20 +10,22 @@ var directives = dir(__dirname + '/directives').reduce(function(ds, name) {
 module.exports = function() {
 
   var components = {
-    div: function(props, children) {
+    div: function(el) {
       injector.count++;
       return {
         tag: 'div',
-        props: props,
-        children: children
+        props: el.props,
+        children: el.children,
+        __pending: el.__pending
       };
     },
-    span: function(props, children) {
+    span: function(el) {
       injector.count++;
       return {
         tag: 'span',
-        props: props,
-        children: children
+        props: el.props,
+        children: el.children,
+        __pending: el.__pending
       };
     }
   };

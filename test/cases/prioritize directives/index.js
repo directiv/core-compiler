@@ -9,5 +9,6 @@ exports.input = {
 exports.output = {
   tag: 'div',
   props: {},
-  children: '1'
+  children: '1',
+  __pending: false
 };

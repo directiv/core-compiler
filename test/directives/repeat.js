@@ -19,13 +19,13 @@ exports.children = function(config, state, children) {
   if (!items) return arr;
 
   var target = config.target;
-  var childValue;
   var i, c, child;
 
   var path = ['state', target];
 
   for (i = 0; i < items.length; i++) {
     function update() {return items[i]};
+
     for (c = 0; c < children.length; c++) {
       child = children[c];
       if (!child) continue;

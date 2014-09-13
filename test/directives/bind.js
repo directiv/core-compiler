@@ -14,6 +14,12 @@ exports.state = function(config, state) {
   return state.set(target, get(path, path.length, 0, val));
 };
 
+exports.status = function(config, state) {
+  return state.get(config.target) ?
+    'defined' :
+    'undefined';
+};
+
 exports.children = function(config, state, children) {
   return state.get(config.target) || '';
 };
