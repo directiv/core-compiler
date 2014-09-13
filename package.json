@@ -1,0 +1,28 @@
+{
+  "name": "directiv-core-compiler",
+  "version": "0.1.0",
+  "description": "compile an ast to a render function",
+  "main": "index.js",
+  "scripts": {
+    "test": "NODE_ENV=test ./node_modules/.bin/mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/directiv/core-compiler.git"
+  },
+  "author": "Cameron Bytheway <bytheway.cameron@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/directiv/core-compiler/issues"
+  },
+  "homepage": "https://github.com/directiv/core-compiler",
+  "dependencies": {
+    "debug": "^2.0.0",
+    "directiv-core-map": "^0.1.1",
+    "directiv-core-reduce": "^0.1.0"
+  },
+  "devDependencies": {
+    "mocha": "^1.21.4",
+    "should": "^4.0.4"
+  }
+}
