@@ -4,7 +4,7 @@
 
 var CoreMap = require('directiv-core-map');
 var reduce = require('directiv-core-reduce');
-var debug = require('debug')('directiv:core:transform');
+var debug = require('debug')('directiv:core:compiler');
 
 /**
  * Compile an AST to a render function
@@ -32,13 +32,15 @@ module.exports = function(ast, injector) {
 function compileNode(ast, injector) {
   debug('compiling', ast);
 
-  var directivesI = compileProps(ast.props, injector);
-  var childrenI = compileChildren(ast.children || [], injector);
+  if (typeof ast === 'string') return function render() {return ast;}
+
+  var directivesReduce = compileProps(ast.props, injector);
+  var childrenReduce = compileChildren(ast.children || [], injector);
 
   var cache = createCache();
 
-  var computeState = genComputeState(directivesI, injector, cache);
-  var computeProperties = genComputeProperties(directivesI, childrenI, injector, cache, ast.name);
+  var computeState = genComputeState(directivesReduce, injector, cache);
+  var computeProperties = genComputeProperties(directivesReduce, childrenReduce, injector, cache, ast.tag || 'div');
 
   return function render(initialState) {
     debug('generating state');
@@ -49,17 +51,22 @@ function compileNode(ast, injector) {
     // call the directives to fetch tag, props, children
     var el = computeProperties(state);
 
-    // TODO support not rendering a node
-    // TODO support only rendering a node's children
+    // don't render this element
+    var tag = el.tag;
+    if (tag === false) return '';
 
     var children = el.children;
-    if (children) evalChildren(el.children);
+    if (children) children = evalChildren(el.children);
 
-    // TODO only do this in development
-    // clear the injector cache
-    clearCache(cache);
+    // merge this node's children into the parent's
+    if (el.childrenOnly) return children || [];
 
-    var element = injector.components(el.tag);
+    // clear the injector cache in development
+    if (process.env === 'development') {
+      clearCache(cache);
+    }
+
+    var element = injector.components(tag);
     return element(el.props, children);
   };
 }
@@ -93,32 +100,38 @@ function clearCache(cache) {
  */
 
 function evalChildren(children) {
-  if (!Array.isArray(children)) return;
-  var child, value, state, tmpl;
+  if (!Array.isArray(children)) return children;
+  var cs = [];
+  var child, value, state, tmpl, res;
   for (var i = 0, l = children.length; i < l; i++) {
     child = children[i];
     value = child._value;
     state = value.state;
     tmpl = value._tmpl;
-    children[i] = tmpl(new CoreMap(state));
+    res = tmpl(new CoreMap(state));
+    // if the result is an array merge it with our own children
+    if (Array.isArray(res)) cs = Array.prototype.push.apply(cs, res);
+    else cs.push(res);
   }
+  return cs;
 }
 
 /**
  * Generate a compute state function
  *
- * @param {ReduceFunction} directivesI
+ * @param {ReduceFunction} directives
  * @param {Injector} injector
  * @param {Object} cache
  * @return {Function}
  */
 
-function genComputeState(directivesI, injector, cache) {
+function genComputeState(directives, injector, cache) {
   return function (init) {
-    return directivesI(function(state, config, key) {
+    return directives(function(state, config, key) {
       var directive = cache.directives[key];
       if (!directive) cache.directives[key] = directive = injector.directive(key);
-      var newState = directive.state.call(injector, config, state);
+      var genState = directive.state;
+      var newState = genState ? genState.call(injector, config, state) : state;
 
       // TODO check and see if the newState has a 'pending' flag
       if (newState !== false) state = newState;
@@ -131,23 +144,29 @@ function genComputeState(directivesI, injector, cache) {
 /**
  * Generate a compute properties function
  *
- * @param {ReduceFunction} directivesI
- * @param {ReduceFunction} childrenI
+ * @param {ReduceFunction} directives
+ * @param {ReduceFunction} children
  * @param {Injector} injector
  * @param {Object} cache
  * @param {String} tag
  * @return {Function}
  */
 
-function genComputeProperties(directivesI, childrenI, injector, cache, tag) {
+function genComputeProperties(directives, children, injector, cache, tag) {
   return function (state) {
-    var el = directivesI(function(el, config, key) {
+    var el = directives(function(el, config, key) {
       var d = cache.directives[key];
-      var getTag = d.tag;
-      var getProps = d.getProps;
 
-      if (getTag) el.tag = getTag.call(injector, config, state, el.tag);
-      if (getProps) el.props = getProps.call(injector, config, state, el.props);
+      var childrenOnly = false;
+      // dunno if i like this name
+      if (d.childrenOnly) childrenOnly = el.childrenOnly = true;
+
+      if (!childrenOnly) {
+        var getTag = d.tag;
+        var getProps = d.getProps;
+        if (getTag) el.tag = getTag.call(injector, config, state, el.tag);
+        if (getProps) el.props = getProps.call(injector, config, state, el.props);
+      }
 
       var children = el.children;
       if (!children) return el;
@@ -158,7 +177,7 @@ function genComputeProperties(directivesI, childrenI, injector, cache, tag) {
       el.children = getChildren.call(injector, config, state, children);
       return el;
     }, {
-      children: inherit(childrenI, state._value),
+      children: inherit(children, state._value),
       tag: tag,
       props: new CoreMap(),
       state: state._value
@@ -193,11 +212,12 @@ function inherit(childrenI, parent) {
 
 function compileProps(props, injector) {
   var compiledProps = {};
-  var directive;
+  var directive, compile;
   for (var k in props) {
     directive = injector.directive(k);
     if (!directive) continue;
-    compiledProps[k] = directive.compile(props[k]);
+    compile = directive.compile;
+    compiledProps[k] = compile ? compile(props[k]) : null;
   }
   debug('props compiled', compiledProps);
   return reduce(compiledProps);
@@ -212,6 +232,7 @@ function compileProps(props, injector) {
  */
 
 function compileChildren(children, injector) {
+  if (typeof children === 'string') children = [children];
   var length = children.length;
   var acc = new Array(length);
   var child;
