@@ -125,12 +125,13 @@ function evalChildren(children) {
 
 function genComputeState(directives, injector, cache) {
   return function (init) {
-    return directives(function(state, config, key) {
+    return directives(function(state, d) {
+      var key = d.key;
       var directive = cache.directives[key];
       if (!directive) cache.directives[key] = directive = injector.directive(key);
       var genState = directive.state;
       var newState = genState ?
-            genState.call(injector, config, state) :
+            genState.call(injector, d.conf, state) :
             state;
 
       // TODO check and see if the newState has a 'pending' flag
@@ -155,29 +156,29 @@ function genComputeState(directives, injector, cache) {
 function genComputeProperties(directives, children, injector, cache, tag) {
 
   function computeChildren(state) {
-    return directives(function(cs, config, key) {
+    return directives(function(cs, d) {
       if (!cs) return cs;
 
-      var getChildren = cache.directives[key].children;
+      var getChildren = cache.directives[d.key].children;
       if (!getChildren) return cs;
 
-      return getChildren.call(injector, config, state, cs);
+      return getChildren.call(injector, d.conf, state, cs);
     }, inherit(children, state));
   }
 
   function computeTag(state) {
-    return directives(function(tag, config, key) {
-      var getTag = cache.directives[key].tag;
+    return directives(function(tag, d) {
+      var getTag = cache.directives[d.key].tag;
       if (!getTag) return tag;
-      return getTag.call(injector, config, state, tag);
+      return getTag.call(injector, d.conf, state, tag);
     }, tag);
   }
 
   function computeProps(state) {
-    return directives(function(props, config, key) {
-      var getProps = cache.directives[key].props;
+    return directives(function(props, d) {
+      var getProps = cache.directives[d.key].props;
       if (!getProps) return props;
-      return getProps.call(injector, config, state, props);
+      return getProps.call(injector, d.conf, state, props);
     }, new Props())._value;
   }
 
@@ -218,21 +219,31 @@ function inherit(childrenI, parent) {
  */
 
 function compileProps(props, injector) {
-  var compiledProps = {};
+  var compiledProps = [];
   var directive, compile;
 
   for (var k in props) {
     directive = injector.directive(k);
     if (!directive) continue;
     compile = directive.compile;
-    compiledProps[k] = compile ? compile(props[k]) : null;
+    compiledProps.push({
+      conf: compile ? compile(props[k]) : null,
+      key: k,
+      priority: directive.priority || 0
+    });
   }
   debug('props compiled', compiledProps);
 
+  compiledProps = compiledProps.sort(function(a, b) {
+    var p1 = a.priority, p2 = b.priority;
+    if (p1 === p2) return 0;
+    return p1 > p2 ? -1 : 1;
+  });
+
   // precompute if the directives render their own tags
   var directives = reduce(compiledProps);
-  directives.childrenOnly = directives(function(childrenOnly, config, key) {
-    return injector.directive(key).childrenOnly || childrenOnly;
+  directives.childrenOnly = directives(function(childrenOnly, d) {
+    return injector.directive(d.key).childrenOnly || childrenOnly;
   }, false);
 
   return directives;
