@@ -143,12 +143,10 @@ function evalChildren(children) {
  * @return {Function}
  */
 
-var pendingKey = ['$pending'];
-var statusKey = ['$status'];
 function genComputeState(directives, injector, cache) {
   return function (init) {
     var state = init || new ImmutableMap();
-    var isReady = true;
+    var isPending = false;
     var pending = [];
     var statuses = [];
     var state2 = state.withMutations(function(s) {
@@ -160,7 +158,7 @@ function genComputeState(directives, injector, cache) {
         var newState = genState ? genState.call(injector, d.conf, s) : s;
 
         if (newState === false) {
-          isReady = false;
+          isPending = true;
           return pending.push(key);
         }
 
@@ -168,12 +166,19 @@ function genComputeState(directives, injector, cache) {
         if (!genStatus) return;
         var status = genStatus.call(injector, d.conf, s);
         statuses.push(status);
+
+        var genPending = directive.pending;
+        if (!genPending) return;
+        var dIsPending = genPending.call(injector, d.conf, s);
+        if (!dIsPending) return;
+        isPending = true;
+        pending.push(key);
       });
     });
     state2.__statuses = {
-      // __pending: pending,
+      __pendingItems: pending,
       __statuses: statuses,
-      __pending: !isReady
+      __pending: isPending
     };
     return state2;
   }
@@ -222,14 +227,16 @@ function genComputeProperties(directives, children, injector, cache, tag) {
 
   return function (state) {
     var childrenOnly = directives.childrenOnly;
-
+    var statuses = state.__statuses;
     return {
       children: computeChildren(state),
       tag: childrenOnly ? true: computeTag(state),
       props: childrenOnly ? {} : computeProps(state),
       $state: state,
       childrenOnly: childrenOnly,
-      __pending: state.__statuses.__pending
+      __pending: statuses.__pending,
+      __pendingItems: statuses.__pendingItems,
+      __statuses: statuses.__statuses
     };
   }
 }
