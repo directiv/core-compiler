@@ -4,13 +4,13 @@ exports.compile = function(input) {
   return {
     source: source,
     target: parts[0],
-    path: parts[1]
+    path: parts[1].split('.')
   };
 };
 
 exports.state = function(config, state) {
   var source = config.source;
-  return state.set(source, state.get(config.path));
+  return state.set(source, state.getIn(config.path));
 };
 
 exports.children = function(config, state, children) {
@@ -22,18 +22,15 @@ exports.children = function(config, state, children) {
   var childValue;
   var i, c, child;
 
-  var commit = {
-    state: {
-      $merge: {}
-    }
-  };
-  var $merge = commit.state.$merge;
+  var path = ['state', target];
 
   for (i = 0; i < items.length; i++) {
-    $merge[target] = items[i];
+    function update() {return items[i]};
     for (c = 0; c < children.length; c++) {
       child = children[c];
-      if (child) arr.push(child.set(commit));
+      if (!child) continue;
+      child = child.updateIn(path, update);
+      arr.push(child);
     }
   }
   return arr;

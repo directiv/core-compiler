@@ -2,8 +2,8 @@
  * Module dependencies
  */
 
-var CoreMap = require('directiv-core-map');
 var reduce = require('directiv-core-reduce');
+var ImmutableMap = require('immutable').Map;
 var debug = require('debug')('directiv:core:compiler');
 
 /**
@@ -56,7 +56,7 @@ function compileNode(ast, injector) {
     if (tag === false) return '';
 
     var children = el.children;
-    if (children) children = evalChildren(el.children);
+    if (children) children = evalChildren(children);
 
     // merge this node's children into the parent's
     if (el.childrenOnly) return children || [];
@@ -105,10 +105,7 @@ function evalChildren(children) {
   var child, value, state, tmpl, res;
   for (var i = 0, l = children.length; i < l; i++) {
     child = children[i];
-    value = child._value;
-    state = value.state;
-    tmpl = value._tmpl;
-    res = tmpl(new CoreMap(state));
+    res = child.get('_tmpl')(child.get('state'));
     // if the result is an array merge it with our own children
     if (Array.isArray(res)) cs = Array.prototype.push.apply(cs, res);
     else cs.push(res);
@@ -131,13 +128,15 @@ function genComputeState(directives, injector, cache) {
       var directive = cache.directives[key];
       if (!directive) cache.directives[key] = directive = injector.directive(key);
       var genState = directive.state;
-      var newState = genState ? genState.call(injector, config, state) : state;
+      var newState = genState ?
+            genState.call(injector, config, state) :
+            state;
 
       // TODO check and see if the newState has a 'pending' flag
       if (newState !== false) state = newState;
 
       return state;
-    }, init || new CoreMap());
+    }, init || new ImmutableMap());
   }
 }
 
@@ -153,37 +152,46 @@ function genComputeState(directives, injector, cache) {
  */
 
 function genComputeProperties(directives, children, injector, cache, tag) {
-  return function (state) {
-    var el = directives(function(el, config, key) {
-      var d = cache.directives[key];
 
-      var childrenOnly = false;
-      // dunno if i like this name
-      if (d.childrenOnly) childrenOnly = el.childrenOnly = true;
-
-      if (!childrenOnly) {
-        var getTag = d.tag;
-        var getProps = d.props;
-        if (getTag) el.tag = getTag.call(injector, config, state, el.tag);
-        if (getProps) el.props = getProps.call(injector, config, state, el.props);
-      }
-
-      var children = el.children;
-      if (!children) return el;
+  function computeChildren(state) {
+    return directives(function(cs, config, key) {
+      if (!cs) return cs;
 
       var getChildren = cache.directives[key].children;
-      if (!getChildren) return el;
+      if (!getChildren) return cs;
 
-      el.children = getChildren.call(injector, config, state, children);
-      return el;
-    }, {
-      children: inherit(children, state._value),
-      tag: tag,
-      props: new CoreMap(),
-      state: state._value
-    });
-    el.props = el.props._value;
-    return el;
+      return getChildren.call(injector, config, state, cs);
+    }, inherit(children, state));
+  }
+
+  function computeTag(state) {
+    return directives(function(tag, config, key) {
+      var getTag = cache.directives[key].tag;
+      if (!getTag) return tag;
+      return getTag.call(injector, config, state, tag);
+    }, tag);
+  }
+
+  function computeProps(state) {
+    return directives(function(props, config, key) {
+      var getProps = cache.directives[key].props;
+      if (!getProps) return props;
+      return getProps.call(injector, config, state, props);
+    }, new ImmutableMap()).toJS();
+  }
+
+  return function (state) {
+    var childrenOnly = directives(function(childrenOnly, config, key) {
+      return cache.directives[key].childrenOnly || childrenOnly;
+    }, false);
+
+    return {
+      children: computeChildren(state),
+      tag: childrenOnly ? true: computeTag(state),
+      props: childrenOnly ? {} : computeProps(state),
+      state: state.toJS(),
+      childrenOnly: childrenOnly
+    };
   }
 }
 
@@ -238,7 +246,7 @@ function compileChildren(children, injector) {
   var child;
   for (var i = 0; i < length; i++) {
     child = compileNode(children[i], injector);
-    acc[i] = new CoreMap({_tmpl: child});
+    acc[i] = new ImmutableMap({_tmpl: child});
   }
   debug('children compiled', acc);
   return reduce(acc, true);

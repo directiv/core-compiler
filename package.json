@@ -18,8 +18,8 @@
   "homepage": "https://github.com/directiv/core-compiler",
   "dependencies": {
     "debug": "^2.0.0",
-    "directiv-core-map": "^0.1.1",
-    "directiv-core-reduce": "^0.1.0"
+    "directiv-core-reduce": "^0.1.0",
+    "immutable": "^2.0.17"
   },
   "devDependencies": {
     "mocha": "^1.21.4",

@@ -3,7 +3,7 @@ var should = require('should');
 var dir = require('fs').readdirSync;
 var write = require('fs').writeFileSync;
 var benchmark = require('directiv-test-benchmark');
-var CoreMap = require('directiv-core-map');
+var CoreMap = require('immutable').Map;
 var injector = require('./injector');
 
 /**
@@ -17,7 +17,7 @@ var cases = dir(root + '/cases').map(function(name) {
   return {
     name: name,
     input: ast.input,
-    output: ast.output,
+    output: JSON.parse(JSON.stringify(ast.output)),
     state: new CoreMap(ast.state),
     iterations: ast.iterations || 1000
   };
