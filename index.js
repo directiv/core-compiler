@@ -3,6 +3,7 @@
  */
 
 var reduce = require('directiv-core-reduce');
+var Props = require('./props');
 var ImmutableMap = require('immutable').Map;
 var debug = require('debug')('directiv:core:compiler');
 
@@ -177,7 +178,7 @@ function genComputeProperties(directives, children, injector, cache, tag) {
       var getProps = cache.directives[key].props;
       if (!getProps) return props;
       return getProps.call(injector, config, state, props);
-    }, new ImmutableMap()).toJS();
+    }, new Props())._value;
   }
 
   return function (state) {
