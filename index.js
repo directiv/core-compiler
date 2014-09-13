@@ -181,15 +181,13 @@ function genComputeProperties(directives, children, injector, cache, tag) {
   }
 
   return function (state) {
-    var childrenOnly = directives(function(childrenOnly, config, key) {
-      return cache.directives[key].childrenOnly || childrenOnly;
-    }, false);
+    var childrenOnly = directives.childrenOnly;
 
     return {
       children: computeChildren(state),
       tag: childrenOnly ? true: computeTag(state),
       props: childrenOnly ? {} : computeProps(state),
-      state: state.toJS(),
+      $state: state,
       childrenOnly: childrenOnly
     };
   }
@@ -221,6 +219,7 @@ function inherit(childrenI, parent) {
 function compileProps(props, injector) {
   var compiledProps = {};
   var directive, compile;
+
   for (var k in props) {
     directive = injector.directive(k);
     if (!directive) continue;
@@ -228,7 +227,14 @@ function compileProps(props, injector) {
     compiledProps[k] = compile ? compile(props[k]) : null;
   }
   debug('props compiled', compiledProps);
-  return reduce(compiledProps);
+
+  // precompute if the directives render their own tags
+  var directives = reduce(compiledProps);
+  directives.childrenOnly = directives(function(childrenOnly, config, key) {
+    return injector.directive(key).childrenOnly || childrenOnly;
+  }, false);
+
+  return directives;
 }
 
 /**
@@ -249,5 +255,6 @@ function compileChildren(children, injector) {
     acc[i] = new ImmutableMap({_tmpl: child});
   }
   debug('children compiled', acc);
+
   return reduce(acc, true);
 }
