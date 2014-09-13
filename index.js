@@ -163,7 +163,7 @@ function genComputeProperties(directives, children, injector, cache, tag) {
 
       if (!childrenOnly) {
         var getTag = d.tag;
-        var getProps = d.getProps;
+        var getProps = d.props;
         if (getTag) el.tag = getTag.call(injector, config, state, el.tag);
         if (getProps) el.props = getProps.call(injector, config, state, el.props);
       }

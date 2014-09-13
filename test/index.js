@@ -36,7 +36,7 @@ describe('core-compile', function() {
           var name = test.name;
           write(name + '-actual.json', JSON.stringify(actual, null, ' '));
           write(name + '-expected.json', JSON.stringify(test.output, null, ' '));
-          throw new Error(name + ' failed. Look at ' + name + '-actual.json for the output');
+          throw new Error(name + ' failed. Look at "' + name + '-actual.json" for the output.');
         };
       });
     });
