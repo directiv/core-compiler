@@ -17,7 +17,7 @@ var debug = require('debug')('directiv:core:compiler');
 
 module.exports = function(ast, injector) {
   if (!Array.isArray(ast)) return compileNode(ast, injector);
-  return ast.map(function(node) {
+  return ast.map(function compileNodes(node) {
     return compileNode(node, injector);
   });
 };
@@ -33,7 +33,7 @@ module.exports = function(ast, injector) {
 function compileNode(ast, injector, cache) {
   debug('compiling', ast);
 
-  if (typeof ast === 'string') return function render() {return ast;}
+  if (typeof ast === 'string') return function render() {return ast;};
 
   cache = cache || createCache();
 
@@ -58,7 +58,7 @@ function compileNode(ast, injector, cache) {
       var elStr = '';
       elStr.__pending = el.__pending;
       return elStr;
-    };
+    }
 
     var children = el.children;
     if (typeof children !== 'undefined') {
@@ -181,7 +181,7 @@ function genComputeState(directives, injector, cache) {
       __pending: isPending
     };
     return state2;
-  }
+  };
 }
 
 /**
@@ -225,7 +225,7 @@ function genComputeProperties(directives, children, injector, cache, tag) {
     }, new Props())._value;
   }
 
-  return function (state) {
+  return function computeElementProperties(state) {
     var childrenOnly = directives.childrenOnly;
     var statuses = state.__statuses;
     return {
@@ -238,7 +238,7 @@ function genComputeProperties(directives, children, injector, cache, tag) {
       __pendingItems: statuses.__pendingItems,
       __statuses: statuses.__statuses
     };
-  }
+  };
 }
 
 /**
@@ -280,19 +280,28 @@ function compileProps(props, injector) {
   }
   debug('props compiled', compiledProps);
 
-  compiledProps = compiledProps.sort(function(a, b) {
+  // precompute if the directives render their own tags
+  var directives = reduce(sortProps(compiledProps));
+  directives.childrenOnly = directives(function(childrenOnly, d) {
+    return childrenOnly || injector.directive(d.key).childrenOnly;
+  }, false);
+
+  return directives;
+}
+
+/**
+ * Sort properties based on priority
+ *
+ * @param {Array} props
+ * @return {Array}
+ */
+
+function sortProps(props) {
+  return props.sort(function(a, b) {
     var p1 = a.priority, p2 = b.priority;
     if (p1 === p2) return 0;
     return p1 > p2 ? -1 : 1;
   });
-
-  // precompute if the directives render their own tags
-  var directives = reduce(compiledProps);
-  directives.childrenOnly = directives(function(childrenOnly, d) {
-    return injector.directive(d.key).childrenOnly || childrenOnly;
-  }, false);
-
-  return directives;
 }
 
 /**
