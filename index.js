@@ -217,7 +217,6 @@ function genComputeProperties(directives, children, injector, cache, tag) {
   }
 
   function computeProps(state) {
-    var pending = state.get('$pending');
     return directives(function(props, d) {
       var getProps = cache.directives[d.key].props;
       if (!getProps) return props;
