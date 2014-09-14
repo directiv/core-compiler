@@ -1,7 +1,7 @@
 
 var dir = require('fs').readdirSync;
 
-var directives = dir(__dirname + '/directives').reduce(function(ds, name) {
+var modules = dir(__dirname + '/directives').reduce(function(ds, name) {
   name = name.replace('.js', '');
   ds['data-' + name] = require(__dirname + '/directives/' + name);
   return ds;
@@ -9,35 +9,30 @@ var directives = dir(__dirname + '/directives').reduce(function(ds, name) {
 
 module.exports = function() {
 
-  var components = {
-    div: function(el) {
-      injector.count++;
-      return {
-        tag: 'div',
-        props: el.props,
-        children: el.children,
-        __pending: el.__pending
-      };
-    },
-    span: function(el) {
-      injector.count++;
-      return {
-        tag: 'span',
-        props: el.props,
-        children: el.children,
-        __pending: el.__pending
-      };
-    }
+  modules['el-div'] = function(el) {
+    injector.count++;
+    return {
+      tag: 'div',
+      props: el.props,
+      children: el.children,
+      __pending: el.__pending
+    };
   };
 
-  var injector = {count: 0};
+  modules['el-span'] = function(el) {
+    injector.count++;
+    return {
+      tag: 'span',
+      props: el.props,
+      children: el.children,
+      __pending: el.__pending
+    };
+  };
 
-  injector.directive = function (name) {
-    return directives[name];
-  };
-  injector.components = function(name) {
-    return components[name];
-  };
+  function injector(name) {
+    return modules[name];
+  }
+  injector.count = 0;
 
   return injector;
 };

@@ -7,6 +7,8 @@ var Props = require('./props');
 var ImmutableMap = require('immutable').Map;
 var debug = require('debug')('directiv:core:compiler');
 
+var NODE_ENV = process.env.NODE_ENV;
+
 /**
  * Compile an AST to a render function
  *
@@ -70,12 +72,11 @@ function compileNode(ast, injector, cache) {
     if (el.childrenOnly) return children || [];
 
     // clear the injector cache in development
-    if (process.env === 'development') {
+    if (NODE_ENV !== 'production') {
       clearCache(cache);
     }
 
-    var element = injector.components(tag);
-    return element(el);
+    return injector(tag)(el);
   };
 }
 
@@ -97,7 +98,7 @@ function createCache() {
  */
 
 function clearCache(cache) {
-  cache.directives = {};
+  cache.deps = {};
   return cache;
 }
 
@@ -152,10 +153,10 @@ function genComputeState(directives, injector, cache) {
     var state2 = state.withMutations(function(s) {
       directives(function(_, d) {
         var key = d.key;
-        var directive = cache.directives[key];
-        if (!directive) cache.directives[key] = directive = injector.directive(key);
+        var directive = cache.deps[key];
+        if (!directive) cache.deps[key] = directive = injector(key);
         var genState = directive.state;
-        var newState = genState ? genState.call(injector, d.conf, s) : s;
+        var newState = genState ? genState(d.conf, s) : s;
 
         if (newState === false) {
           isPending = true;
@@ -164,12 +165,12 @@ function genComputeState(directives, injector, cache) {
 
         var genStatus = directive.status;
         if (!genStatus) return;
-        var status = genStatus.call(injector, d.conf, s);
+        var status = genStatus(d.conf, s);
         statuses.push(status);
 
         var genPending = directive.pending;
         if (!genPending) return;
-        var dIsPending = genPending.call(injector, d.conf, s);
+        var dIsPending = genPending(d.conf, s);
         if (!dIsPending) return;
         isPending = true;
         pending.push(key);
@@ -201,26 +202,28 @@ function genComputeProperties(directives, children, injector, cache, tag) {
     return directives(function(cs, d) {
       if (!cs) return cs;
 
-      var getChildren = cache.directives[d.key].children;
+      var getChildren = cache.deps[d.key].children;
       if (!getChildren) return cs;
 
-      return getChildren.call(injector, d.conf, state, cs);
+      return getChildren(d.conf, state, cs);
     }, inherit(children, state));
   }
 
   function computeTag(state) {
-    return directives(function(tag, d) {
-      var getTag = cache.directives[d.key].tag;
+    var t = directives(function(tag, d) {
+      var getTag = cache.deps[d.key].tag;
       if (!getTag) return tag;
-      return getTag.call(injector, d.conf, state, tag);
+      return getTag(d.conf, state, tag);
     }, tag);
+    if (t !== false) t = 'el-' + t;
+    return t;
   }
 
   function computeProps(state) {
     return directives(function(props, d) {
-      var getProps = cache.directives[d.key].props;
+      var getProps = cache.deps[d.key].props;
       if (!getProps) return props;
-      return getProps.call(injector, d.conf, state, props);
+      return getProps(d.conf, state, props);
     }, new Props())._value;
   }
 
@@ -268,7 +271,7 @@ function compileProps(props, injector) {
   var directive, compile;
 
   for (var k in props) {
-    directive = injector.directive(k);
+    directive = injector(k);
     if (!directive) continue;
     compile = directive.compile;
     compiledProps.push({
@@ -282,7 +285,7 @@ function compileProps(props, injector) {
   // precompute if the directives render their own tags
   var directives = reduce(sortProps(compiledProps));
   directives.childrenOnly = directives(function(childrenOnly, d) {
-    return childrenOnly || injector.directive(d.key).childrenOnly;
+    return childrenOnly || injector(d.key).childrenOnly;
   }, false);
 
   return directives;
