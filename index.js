@@ -314,5 +314,5 @@ function compileChildren(children, injector, cache) {
   }
   debug('children compiled', acc);
 
-  return reduce(acc, true);
+  return reduce(acc);
 }
