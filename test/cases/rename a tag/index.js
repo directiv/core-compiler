@@ -7,7 +7,6 @@ exports.input = {
 
 exports.output = {
   tag: 'span',
-  props: {},
-  children: [],
-  __pending: false
+  props: {__pending: false},
+  children: []
 };

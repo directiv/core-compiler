@@ -7,7 +7,7 @@ var Props = require('./props');
 var ImmutableMap = require('immutable').Map;
 var debug = require('debug')('directiv:core:compiler');
 
-var NODE_ENV = process.env.NODE_ENV;
+var DEVELOPMENT = process.env.NODE_ENV === 'development';
 
 /**
  * Compile an AST to a render function
@@ -19,10 +19,21 @@ var NODE_ENV = process.env.NODE_ENV;
 
 module.exports = function(ast, injector) {
   if (!Array.isArray(ast)) return compileNode(ast, injector);
-  return ast.map(function compileNodes(node) {
+  return compileRootNodes(ast, injector);
+};
+
+function compileRootNodes(ast, injector) {
+  var fns = ast.map(function compileNodes(node) {
     return compileNode(node, injector);
   });
-};
+  var fnsR = reduce(fns);
+  return function render(initialState) {
+    return fnsR(function(acc, fn, i) {
+      acc[i] = fn(initialState);
+      return acc;
+    }, []);
+  };
+}
 
 /**
  * Compile a node in an AST
@@ -33,7 +44,7 @@ module.exports = function(ast, injector) {
  */
 
 function compileNode(ast, injector, cache) {
-  debug('compiling', ast);
+  if (DEVELOPMENT) debug('compiling', ast);
 
   if (typeof ast === 'string') return function render() {return ast;};
 
@@ -45,8 +56,29 @@ function compileNode(ast, injector, cache) {
   var computeState = genComputeState(directivesReduce, injector, cache);
   var computeProperties = genComputeProperties(directivesReduce, childrenReduce, injector, cache, ast.tag || 'div');
 
+  /**
+   * Get a tag from cache, falling back to the injector
+   *
+   * @param {String} tag
+   * @return {Function}
+   */
+
+  function getTag(tag) {
+    var el = cache.deps[tag];
+    if (el) return el;
+    return cache.deps[tag] = injector(tag);
+  }
+
+  /**
+   * Return a render function
+   *
+   * @param {Object} initialStaet
+   * @return {AST}
+   */
+
   return function render(initialState) {
-    debug('generating state');
+    if (DEVELOPMENT) debug('generating state');
+    if (initialState && !initialState.get) initialState = new ImmutableMap(initialState);
 
     // get the current state from the directives
     var state = computeState(initialState);
@@ -54,29 +86,30 @@ function compileNode(ast, injector, cache) {
     // call the directives to fetch tag, props, children
     var el = computeProperties(state);
 
-    // don't render this element
     var tag = el.tag;
+
+    // don't render this element
     if (tag === false) {
       var elStr = '';
       elStr.__pending = el.__pending;
       return elStr;
     }
 
+    var props;
     var children = el.children;
-    if (typeof children !== 'undefined') {
+    if (children) {
       children = el.children = evalChildren(children);
-      el.__pending = el.__pending || !!children.__pending;
+      props = el.props;
+      props.__pending = props.__pending || !!children.__pending;
     }
 
     // merge this node's children into the parent's
-    if (el.childrenOnly) return children || [];
+    if (el.childrenOnly) return children;
 
     // clear the injector cache in development
-    if (NODE_ENV !== 'production') {
-      clearCache(cache);
-    }
+    if (DEVELOPMENT) clearCache(cache);
 
-    return injector(tag)(el);
+    return getTag(tag)(el);
   };
 }
 
@@ -97,9 +130,11 @@ function createCache() {
  * @return {Object}
  */
 
-function clearCache(cache) {
-  cache.deps = {};
-  return cache;
+if (DEVELOPMENT) {
+  function clearCache(cache) {
+    cache.deps = {};
+    return cache;
+  }
 }
 
 /**
@@ -113,26 +148,34 @@ function evalChildren(children) {
     children.__pending = false;
     return children;
   }
-  var cs = [];
+
+  var evaledChildren = [];
+
   var child, value, state, tmpl, res, i, l;
   for (i = 0, l = children.length; i < l; i++) {
     child = children[i];
     res = child.get('_tmpl')(child.get('state'));
     // if the result is an array merge it with our own children
-    if (Array.isArray(res)) cs = Array.prototype.push.apply(cs, res);
-    else cs.push(res);
+    if (Array.isArray(res)) evaledChildren = Array.prototype.push.apply(evaledChildren, res);
+    else evaledChildren.push(res);
   }
 
-  cs.__pending = false;
+  evaledChildren.__pending = false;
 
-  var pending;
-  for (i = 0, l = cs.length; i < l; i++) {
-    pending = cs[i].__pending;
+  var pending, props, item;
+  for (i = 0, l = evaledChildren.length; i < l; i++) {
+    item = evaledChildren[i];
+    if (!item) continue;
+
+    props = item.props;
+    if (!props) continue;
+    pending = props.__pending;
     if (!pending) continue;
-    cs.__pending = true;
+
+    evaledChildren.__pending = true;
     break;
   }
-  return cs;
+  return evaledChildren;
 }
 
 /**
@@ -177,9 +220,9 @@ function genComputeState(directives, injector, cache) {
       });
     });
     state2.__statuses = {
-      __pendingItems: pending,
-      __statuses: statuses,
-      __pending: isPending
+      pendingItems: pending,
+      statuses: statuses,
+      pending: isPending
     };
     return state2;
   };
@@ -219,26 +262,27 @@ function genComputeProperties(directives, children, injector, cache, tag) {
     return t;
   }
 
-  function computeProps(state) {
+  function computeProps(state, pending) {
     return directives(function(props, d) {
       var getProps = cache.deps[d.key].props;
       if (!getProps) return props;
       return getProps(d.conf, state, props);
-    }, new Props())._value;
+    }, new Props({__pending: pending}))._value;
   }
 
   return function computeElementProperties(state) {
     var childrenOnly = directives.childrenOnly;
     var statuses = state.__statuses;
+    var pending = statuses.pending;
     return {
       children: computeChildren(state),
       tag: childrenOnly ? true: computeTag(state),
-      props: childrenOnly ? {} : computeProps(state),
-      $state: state,
+      props: childrenOnly ? {__pending: pending} : computeProps(state, pending),
       childrenOnly: childrenOnly,
-      __pending: statuses.__pending,
-      __pendingItems: statuses.__pendingItems,
-      __statuses: statuses.__statuses
+      state: state,
+      pending: pending,
+      pendingItems: statuses.pendingItems,
+      statuses: statuses.statuses
     };
   };
 }
@@ -271,16 +315,16 @@ function compileProps(props, injector) {
   var directive, compile;
 
   for (var k in props) {
-    directive = injector(k);
+    directive = injector(k, true);
     if (!directive) continue;
     compile = directive.compile;
     compiledProps.push({
-      conf: compile ? compile(props[k]) : null,
+      conf: compile ? compile(props[k], props) : null,
       key: k,
       priority: directive.priority || 0
     });
   }
-  debug('props compiled', compiledProps);
+  if (DEVELOPMENT) debug('props compiled', compiledProps);
 
   // precompute if the directives render their own tags
   var directives = reduce(sortProps(compiledProps));
@@ -323,7 +367,7 @@ function compileChildren(children, injector, cache) {
     child = compileNode(children[i], injector, cache);
     acc[i] = new ImmutableMap({_tmpl: child});
   }
-  debug('children compiled', acc);
+  if (DEVELOPMENT) debug('children compiled', acc);
 
   return reduce(acc);
 }

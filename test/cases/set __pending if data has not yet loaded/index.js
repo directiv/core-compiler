@@ -11,7 +11,6 @@ exports.input = {
 
 exports.output = {
   tag: 'div',
-  props: {},
-  children: [],
-  __pending: true
+  props: {__pending: true},
+  children: []
 };

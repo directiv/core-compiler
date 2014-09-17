@@ -14,8 +14,7 @@ module.exports = function() {
     return {
       tag: 'div',
       props: el.props,
-      children: el.children,
-      __pending: el.__pending
+      children: el.children
     };
   };
 
@@ -24,8 +23,7 @@ module.exports = function() {
     return {
       tag: 'span',
       props: el.props,
-      children: el.children,
-      __pending: el.__pending
+      children: el.children
     };
   };
 

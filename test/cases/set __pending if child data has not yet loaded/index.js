@@ -29,34 +29,29 @@ exports.input = {
 
 exports.output = {
   tag: 'div',
-  props: {},
+  props: {__pending: true},
   children: [
     {
       tag: 'div',
-      props: {},
+      props: {__pending: true},
       children: [
         {
           tag: 'div',
-          props: {},
-          children: [],
-          __pending: true
+          props: {__pending: true},
+          children: []
         }
-      ],
-      __pending: true
+      ]
     },
     {
       tag: 'div',
-      props: {},
+      props: {__pending: false},
       children: [
         {
           tag: 'div',
-          props: {},
-          children: [],
-          __pending: false
+          props: {__pending: false},
+          children: []
         }
-      ],
-      __pending: false
+      ]
     }
-  ],
-  __pending: true
+  ]
 };

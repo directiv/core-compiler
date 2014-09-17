@@ -12,8 +12,8 @@ exports.input = {
 exports.output = {
   tag: 'div',
   props: {
-    href: '/users/123'
+    href: '/users/123',
+    __pending: false
   },
-  children: [],
-  __pending: false
+  children: []
 };

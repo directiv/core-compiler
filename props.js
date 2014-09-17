@@ -6,8 +6,8 @@ module.exports = Props;
  * since this is key value its ok if its mutable
  */
 
-function Props() {
-  this._value = {};
+function Props(val) {
+  this._value = val || {};
 }
 
 Props.prototype.set = function(key, value) {

@@ -8,7 +8,6 @@ exports.input = {
 
 exports.output = {
   tag: 'div',
-  props: {},
-  children: '1',
-  __pending: false
+  props: {__pending: false},
+  children: '1'
 };

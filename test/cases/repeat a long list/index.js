@@ -27,14 +27,12 @@ exports.input = {
 
 exports.output = {
   tag: 'div',
-  props: {},
+  props: {__pending: false},
   children: users.map(function(user) {
     return {
       tag: 'div',
-      props: {},
-      children: user.name,
-      __pending: false
+      props: {__pending: false},
+      children: user.name
     };
-  }),
-  __pending: false
+  })
 };

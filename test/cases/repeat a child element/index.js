@@ -23,26 +23,22 @@ exports.input = {
 
 exports.output = {
   tag: 'div',
-  props: {},
+  props: {__pending: false},
   children: [
     {
       tag: 'div',
-      props: {},
-      children: 'Cameron',
-      __pending: false
+      props: {__pending: false},
+      children: 'Cameron'
     },
     {
       tag: 'div',
-      props: {},
-      children: 'Brannon',
-      __pending: false
+      props: {__pending: false},
+      children: 'Brannon'
     },
     {
       tag: 'div',
-      props: {},
-      children: 'Mike',
-      __pending: false
+      props: {__pending: false},
+      children: 'Mike'
     }
-  ],
-  __pending: false
+  ]
 };

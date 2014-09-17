@@ -1,19 +1,17 @@
 var children = [
   {
     tag: 'span',
-    props: {},
+    props: {__pending: false},
     children: [
       'Hello'
-    ],
-    __pending: false
+    ]
   },
   {
     tag: 'span',
-    props: {},
+    props: {__pending: false},
     children: [
       'World'
-    ],
-    __pending: false
+    ]
   }
 ];
 
