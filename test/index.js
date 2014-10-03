@@ -34,10 +34,7 @@ describe('core-compile', function() {
         try {
           actual.should.eql(test.output);
         } catch (e) {
-          var name = test.name;
-          write(name + '-actual.json', JSON.stringify(actual, null, ' '));
-          write(name + '-expected.json', JSON.stringify(test.output, null, ' '));
-          throw new Error(name + ' failed. Look at "' + name + '-actual.json" for the output.');
+          outputError(test, actual);
         };
       });
     });
@@ -58,3 +55,11 @@ describe('core-compile', function() {
     });
   });
 });
+
+function outputError(test, actual) {
+  var out = root + '/test/results/' + test.name;
+  write(out + '-actual.json', JSON.stringify(actual, null, ' '));
+  write(out + '-expected.json', JSON.stringify(test.output, null, ' '));
+  var name = test.name;
+  throw new Error(name + ' failed. Look at "' + name + '-actual.json" for the output.');
+}

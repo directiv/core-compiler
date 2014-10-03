@@ -14,13 +14,22 @@ var DEVELOPMENT = process.env.NODE_ENV === 'development';
  *
  * @param {Object|Array} ast
  * @param {Injector} injector
- * @return {Object}
+ * @return {Function}
  */
 
 module.exports = function(ast, injector) {
-  if (!Array.isArray(ast)) return compileNode(ast, injector);
-  return compileRootNodes(ast, injector);
+  return Array.isArray(ast) ?
+    compileRootNodes(ast, injector) :
+    compileNode(ast, injector);
 };
+
+/**
+ * Compile an array of nodes
+ *
+ * @param {Array} ast
+ * @param {Injector} injector
+ * @return {Function}
+ */
 
 function compileRootNodes(ast, injector) {
   var fns = ast.map(function compileNodes(node) {
@@ -263,11 +272,16 @@ function genComputeProperties(directives, children, injector, cache, tag) {
   }
 
   function computeProps(state, pending) {
+    var originalProperties = new Props({__pending: pending});
+
+    // preserve the original properties in development
+    if (DEVELOPMENT) originalProperties.merge(directives._props);
+
     return directives(function(props, d) {
       var getProps = cache.deps[d.key].props;
       if (!getProps) return props;
       return getProps(d.conf, state, props);
-    }, new Props({__pending: pending}))._value;
+    }, originalProperties)._value;
   }
 
   return function computeElementProperties(state) {
@@ -314,7 +328,10 @@ function compileProps(props, injector) {
   var compiledProps = [];
   var directive, compile;
 
-  for (var k in props) {
+  var keys = Object.keys(props);
+  var k;
+  for (var i = 0, l = keys.length; i < l; i++) {
+    k = keys[i];
     directive = injector(k, true);
     if (!directive) continue;
     compile = directive.compile;
@@ -331,6 +348,8 @@ function compileProps(props, injector) {
   directives.childrenOnly = directives(function(childrenOnly, d) {
     return childrenOnly || injector(d.key).childrenOnly;
   }, false);
+
+  if (DEVELOPMENT) directives._props = props;
 
   return directives;
 }
